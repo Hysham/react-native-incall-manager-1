@@ -63,6 +63,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.zxcpoiu.incallmanager.AppRTC.AppRTCBluetoothManager;
 
@@ -107,6 +109,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     private Uri defaultBusytoneUri = Settings.System.DEFAULT_NOTIFICATION_URI;
     // private Uri defaultAlarmAlertUri = Settings.System.DEFAULT_ALARM_ALERT_URI;
     // // --- too annoying
+    static Timer timer;
     private Uri bundleRingtoneUri;
     private Uri bundleRingbackUri;
     private Uri bundleBusytoneUri;
@@ -210,7 +213,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         bluetoothManager = AppRTCBluetoothManager.create(reactContext, this);
         proximityManager = InCallProximityManager.create(reactContext, this);
         wakeLockUtils = new InCallWakeLockUtils(reactContext);
-
         Log.d(TAG, "InCallManager initialized");
     }
 
@@ -607,6 +609,9 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 startRingback(ringbackUriType);
             }
         }
+        if (timer != null) {
+            timer.cancel();
+        }
     }
 
     public void stop() {
@@ -813,6 +818,66 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         }
     }
 
+    @ReactMethod
+    public void startHoldCallTone(final String ringbackUriType) {
+        if (ringbackUriType.isEmpty()) {
+            return;
+        }
+        try {
+            timer = null;
+            timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    // here goes your code to delay
+                    Log.d(TAG, "timer plays after 10s()");
+                    Log.d(TAG, "startRingback(): UriType=" + ringbackUriType);
+                    if (mRingback != null) {
+                        if (mRingback.isPlaying()) {
+                            Log.d(TAG, "startRingback(): is already playing");
+                            return;
+                        } else {
+                            stopRingback(); // --- use brandnew instance
+                        }
+                    }
+
+                    Uri ringbackUri;
+                    Map data = new HashMap<String, Object>();
+                    data.put("name", "mRingback");
+                    if (ringbackUriType.equals("_DTMF_")) {
+                        mRingback = new myToneGenerator(myToneGenerator.RINGBACK);
+                        mRingback.startPlay(data);
+                        return;
+                    } else {
+                        ringbackUri = getRingbackUri(ringbackUriType);
+                        if (ringbackUri == null) {
+                            Log.d(TAG, "startRingback(): no available media");
+                            return;
+                        }
+                    }
+
+                    mRingback = new myMediaPlayer();
+                    data.put("sourceUri", ringbackUri);
+                    data.put("setLooping", false);
+                    data.put("audioStream", AudioManager.STREAM_VOICE_CALL);
+                    /*
+                     * TODO: for API 21
+                     * data.put("audioFlag", AudioAttributes.FLAG_AUDIBILITY_ENFORCED);
+                     * data.put("audioUsage", AudioAttributes.USAGE_VOICE_COMMUNICATION); //
+                     * USAGE_VOICE_COMMUNICATION_SIGNALLING ?
+                     * data.put("audioContentType", AudioAttributes.CONTENT_TYPE_SPEECH); //
+                     * CONTENT_TYPE_MUSIC ?
+                     */
+                    setMediaPlayerEvents((MediaPlayer) mRingback, "mRingback");
+                    mRingback.startPlay(data);
+
+                }
+            }, 0, 10000);
+        } catch (Exception e) {
+            Log.d(TAG, "startRingback() failed");
+        }
+    }
+
     /**
      * This is part of start() process.
      * ringbackUriType must not empty. empty means do not play.
@@ -960,7 +1025,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
 
             if (isCallActive()) {
                 Log.d(TAG, "startRingtone(): already a call active-playing beep");
-                startRingback(ringtoneUriType);
+                startHoldCallTone(ringtoneUriType);
                 return;
             }
 
@@ -1040,6 +1105,8 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
                 mRingtoneCountDownHandler = null;
             }
+            // stopRingback();
+            timer.cancel();
         } catch (Exception e) {
             Log.d(TAG, "stopRingtone() failed");
         }
@@ -1058,6 +1125,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 mRingtoneCountDownHandler = null;
             }
             stopRingback();
+            timer.cancel();
         } catch (Exception e) {
             Log.d(TAG, "stopRingtone() failed");
         }
