@@ -24,6 +24,7 @@ import android.content.BroadcastReceiver;
 import android.content.pm.PackageManager;
 import android.Manifest.permission;
 //import android.media.AudioAttributes; // --- for API 21+
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.AudioDeviceInfo;
 import android.media.MediaPlayer;
@@ -32,6 +33,9 @@ import android.net.Uri;
 import android.os.PowerManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.VibrationAttributes;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -109,7 +113,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     private Uri defaultBusytoneUri = Settings.System.DEFAULT_NOTIFICATION_URI;
     // private Uri defaultAlarmAlertUri = Settings.System.DEFAULT_ALARM_ALERT_URI;
     // // --- too annoying
-    static Timer timer;
+    static Timer timer = null;
     private Uri bundleRingtoneUri;
     private Uri bundleRingbackUri;
     private Uri bundleBusytoneUri;
@@ -180,6 +184,11 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     // Callback method for changes in audio focus.
     private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
 
+    private static Vibrator vibrator;
+    private AudioAttributes audioAttributes;
+    private VibrationEffect ve;
+    private VibrationAttributes va;
+
     interface MyPlayerInterface {
         public boolean isPlaying();
 
@@ -213,6 +222,8 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         bluetoothManager = AppRTCBluetoothManager.create(reactContext, this);
         proximityManager = InCallProximityManager.create(reactContext, this);
         wakeLockUtils = new InCallWakeLockUtils(reactContext);
+        vibrator = (Vibrator) reactContext.getSystemService(Context.VIBRATOR_SERVICE);
+
         Log.d(TAG, "InCallManager initialized");
     }
 
@@ -1036,6 +1047,24 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 } else {
                     stopRingtone(); // --- use brandnew instance
                 }
+            }else{
+                // VIBRATION
+                Log.d(TAG, "startRingtone(): VIBRATION");
+                long[] timings = {1000, 1000, 2000};
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                    ve = VibrationEffect.createWaveform(timings,1);
+                    audioAttributes = new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                            .build();
+                    vibrator.vibrate(ve, audioAttributes);
+                }else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+                    ve = VibrationEffect.createWaveform(timings,1);
+                    va = new VibrationAttributes.Builder()
+                            .setUsage(VibrationAttributes.USAGE_RINGTONE)
+                            .build();
+                    vibrator.vibrate(ve, va);
+                }
             }
 
             // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
@@ -1075,6 +1104,8 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
             mRingtone.startPlay(data);
 
+
+
             if (seconds > 0) {
                 mRingtoneCountDownHandler = new Handler();
                 mRingtoneCountDownHandler.postDelayed(new Runnable() {
@@ -1106,9 +1137,12 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 mRingtoneCountDownHandler = null;
             }
             // stopRingback();
-            timer.cancel();
+            vibrator.cancel();
+            if(timer!=null){
+                timer.cancel();
+            }
         } catch (Exception e) {
-            Log.d(TAG, "stopRingtone() failed");
+            Log.d(TAG, "native stopRingtone() failed");
         }
     }
 
@@ -1124,8 +1158,11 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
                 mRingtoneCountDownHandler = null;
             }
+            vibrator.cancel();
             stopRingback();
-            timer.cancel();
+            if(timer != null) {
+                timer.cancel();
+            }
         } catch (Exception e) {
             Log.d(TAG, "stopRingtone() failed");
         }
