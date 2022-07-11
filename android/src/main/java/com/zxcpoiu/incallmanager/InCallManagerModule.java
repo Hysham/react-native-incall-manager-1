@@ -590,13 +590,13 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         automatic = auto;
         if (!audioManagerActivated) {
             audioManagerActivated = true;
-
             Log.d(TAG, "start audioRouteManager");
             wakeLockUtils.acquirePartialWakeLock();
             if (mRingtone != null && mRingtone.isPlaying()) {
                 Log.d(TAG, "stop ringtone");
                 stopRingtone(); // --- use brandnew instance
             }
+            vibrator.cancel();
             storeOriginalAudioSetup();
             requestAudioFocus();
             startEvents();
@@ -1047,24 +1047,25 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 } else {
                     stopRingtone(); // --- use brandnew instance
                 }
-            }else{
+            } else {
                 // VIBRATION
                 Log.d(TAG, "startRingtone(): VIBRATION");
-                long[] timings = {1000, 1000, 2000};
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-                    ve = VibrationEffect.createWaveform(timings,1);
+                long[] timings = { 1000, 1000, 2000 };
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ve = VibrationEffect.createWaveform(timings, 1);
                     audioAttributes = new AudioAttributes.Builder()
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                             .build();
                     vibrator.vibrate(ve, audioAttributes);
-                }else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
-                    ve = VibrationEffect.createWaveform(timings,1);
-                    va = new VibrationAttributes.Builder()
-                            .setUsage(VibrationAttributes.USAGE_RINGTONE)
-                            .build();
-                    vibrator.vibrate(ve, va);
                 }
+                // else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+                // ve = VibrationEffect.createWaveform(timings,1);
+                // va = new VibrationAttributes.Builder()
+                // .setUsage(VibrationAttributes.USAGE_RINGTONE)
+                // .build();
+                // vibrator.vibrate(ve, va);
+                // }
             }
 
             // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
@@ -1104,8 +1105,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
             mRingtone.startPlay(data);
 
-
-
             if (seconds > 0) {
                 mRingtoneCountDownHandler = new Handler();
                 mRingtoneCountDownHandler.postDelayed(new Runnable() {
@@ -1138,7 +1137,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             }
             // stopRingback();
             vibrator.cancel();
-            if(timer!=null){
+            if (timer != null) {
                 timer.cancel();
             }
         } catch (Exception e) {
@@ -1149,6 +1148,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     @ReactMethod
     public void stopRingtone() {
         try {
+            Log.d(TAG, "stopRingtone()");
             if (mRingtone != null) {
                 mRingtone.stopPlay();
                 mRingtone = null;
@@ -1160,7 +1160,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             }
             vibrator.cancel();
             stopRingback();
-            if(timer != null) {
+            if (timer != null) {
                 timer.cancel();
             }
         } catch (Exception e) {
