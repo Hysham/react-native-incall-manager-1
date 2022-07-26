@@ -1031,143 +1031,289 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
 
     @ReactMethod
     public void startRingtone(final String ringtoneUriType, final int seconds) {
-        try {
-            Log.d(TAG, "startRingtone(): UriType=" + ringtoneUriType);
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Log.d(TAG, "startRingtone(): UriType=" + ringtoneUriType);
 
-            if (isCallActive()) {
-                Log.d(TAG, "startRingtone(): already a call active-playing beep");
-                startHoldCallTone(ringtoneUriType);
-                return;
-            }
-
-            if (mRingtone != null) {
-                if (mRingtone.isPlaying()) {
-                    Log.d(TAG, "startRingtone(): is already playing");
-                    return;
-                } else {
-                    stopRingtone(); // --- use brandnew instance
-                }
-            } else {
-                // VIBRATION
-                Log.d(TAG, "startRingtone(): VIBRATION");
-                long[] timings = { 1000, 1000, 2000 };
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    ve = VibrationEffect.createWaveform(timings, 1);
-                    audioAttributes = new AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                            .build();
-                    vibrator.vibrate(ve, audioAttributes);
-                }
-                // else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
-                // ve = VibrationEffect.createWaveform(timings,1);
-                // va = new VibrationAttributes.Builder()
-                // .setUsage(VibrationAttributes.USAGE_RINGTONE)
-                // .build();
-                // vibrator.vibrate(ve, va);
-                // }
-            }
-
-            // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
-            // if (origRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-            if (audioManager.getStreamVolume(AudioManager.STREAM_RING) == 0) {
-                Log.d(TAG, "startRingtone(): ringer is silent. leave without play.");
-                return;
-            }
-
-            // --- there is no _DTMF_ option in startRingtone()
-            Uri ringtoneUri = getRingtoneUri(ringtoneUriType);
-            if (ringtoneUri == null) {
-                Log.d(TAG, "startRingtone(): no available media");
-                return;
-            }
-
-            if (audioManagerActivated) {
-                stop();
-            }
-
-            wakeLockUtils.acquirePartialWakeLock();
-
-            storeOriginalAudioSetup();
-            Map data = new HashMap<String, Object>();
-            mRingtone = new myMediaPlayer();
-            data.put("name", "mRingtone");
-            data.put("sourceUri", ringtoneUri);
-            data.put("setLooping", true);
-            data.put("audioStream", AudioManager.STREAM_RING);
-            /*
-             * TODO: for API 21
-             * data.put("audioFlag", 0);
-             * data.put("audioUsage", AudioAttributes.USAGE_NOTIFICATION_RINGTONE); //
-             * USAGE_NOTIFICATION_COMMUNICATION_REQUEST ?
-             * data.put("audioContentType", AudioAttributes.CONTENT_TYPE_MUSIC);
-             */
-            setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
-            mRingtone.startPlay(data);
-
-            if (seconds > 0) {
-                mRingtoneCountDownHandler = new Handler();
-                mRingtoneCountDownHandler.postDelayed(new Runnable() {
-                    public void run() {
-                        try {
-                            Log.d(TAG, String.format(
-                                    "mRingtoneCountDownHandler.stopRingtone() timeout after %d seconds", seconds));
-                            stopRingtone();
-                        } catch (Exception e) {
-                            Log.d(TAG, "mRingtoneCountDownHandler.stopRingtone() failed.");
-                        }
+                    if (isCallActive()) {
+                        Log.d(TAG, "startRingtone(): already a call active-playing beep");
+                        startHoldCallTone(ringtoneUriType);
+                        return;
                     }
-                }, seconds * 1000);
+
+                    if (mRingtone != null) {
+                        if (mRingtone.isPlaying()) {
+                            Log.d(TAG, "startRingtone(): is already playing");
+                            return;
+                        } else {
+                            stopRingtone(); // --- use brandnew instance
+                        }
+                    } else {
+                        // VIBRATION
+                        Log.d(TAG, "startRingtone(): VIBRATION");
+                        long[] timings = { 1000, 1000, 2000 };
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            ve = VibrationEffect.createWaveform(timings, 1);
+                            audioAttributes = new AudioAttributes.Builder()
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                                    .build();
+                            vibrator.vibrate(ve, audioAttributes);
+                        }
+                        // else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+                        // ve = VibrationEffect.createWaveform(timings,1);
+                        // va = new VibrationAttributes.Builder()
+                        // .setUsage(VibrationAttributes.USAGE_RINGTONE)
+                        // .build();
+                        // vibrator.vibrate(ve, va);
+                        // }
+                    }
+
+                    // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
+                    // if (origRingerMode == AudioManager.RINGER_MODE_NORMAL) {
+                    if (audioManager.getStreamVolume(AudioManager.STREAM_RING) == 0) {
+                        Log.d(TAG, "startRingtone(): ringer is silent. leave without play.");
+                        return;
+                    }
+
+                    // --- there is no _DTMF_ option in startRingtone()
+                    Uri ringtoneUri = getRingtoneUri(ringtoneUriType);
+                    if (ringtoneUri == null) {
+                        Log.d(TAG, "startRingtone(): no available media");
+                        return;
+                    }
+
+                    if (audioManagerActivated) {
+                        stop();
+                    }
+
+                    wakeLockUtils.acquirePartialWakeLock();
+
+                    storeOriginalAudioSetup();
+                    Map data = new HashMap<String, Object>();
+                    mRingtone = new myMediaPlayer();
+
+                    data.put("name", "mRingtone");
+                    data.put("sourceUri", ringtoneUri);
+                    data.put("setLooping", true);
+
+                    data.put("audioStream", AudioManager.STREAM_RING); // --- lagacy
+                    // data.put("audioUsage", AudioAttributes.USAGE_NOTIFICATION_RINGTONE); // ---
+                    // USAGE_NOTIFICATION_COMMUNICATION_REQUEST?
+                    // data.put("audioContentType", AudioAttributes.CONTENT_TYPE_MUSIC);
+
+                    setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
+
+                    mRingtone.startPlay(data);
+
+                    if (seconds > 0) {
+                        mRingtoneCountDownHandler = new Handler();
+                        mRingtoneCountDownHandler.postDelayed(new Runnable() {
+                            public void run() {
+                                try {
+                                    Log.d(TAG,
+                                            String.format(
+                                                    "mRingtoneCountDownHandler.stopRingtone() timeout after %d seconds",
+                                                    seconds));
+                                    stopRingtone();
+                                } catch (Exception e) {
+                                    Log.d(TAG, "mRingtoneCountDownHandler.stopRingtone() failed.");
+                                }
+                            }
+                        }, seconds * 1000);
+                    }
+                } catch (Exception e) {
+                    wakeLockUtils.releasePartialWakeLock();
+                    Log.e(TAG, "startRingtone() failed", e);
+                }
             }
-        } catch (Exception e) {
-            wakeLockUtils.releasePartialWakeLock();
-            Log.d(TAG, "startRingtone() failed");
-        }
+        };
+
+        thread.start();
     }
 
+    // @ReactMethod
+    // public void startRingtone(final String ringtoneUriType, final int seconds) {
+    // try {
+    // Log.d(TAG, "startRingtone(): UriType=" + ringtoneUriType);
+
+    // if (isCallActive()) {
+    // Log.d(TAG, "startRingtone(): already a call active-playing beep");
+    // startHoldCallTone(ringtoneUriType);
+    // return;
+    // }
+
+    // if (mRingtone != null) {
+    // if (mRingtone.isPlaying()) {
+    // Log.d(TAG, "startRingtone(): is already playing");
+    // return;
+    // } else {
+    // stopRingtone(); // --- use brandnew instance
+    // }
+    // } else {
+    // // VIBRATION
+    // Log.d(TAG, "startRingtone(): VIBRATION");
+    // long[] timings = { 1000, 1000, 2000 };
+    // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    // ve = VibrationEffect.createWaveform(timings, 1);
+    // audioAttributes = new AudioAttributes.Builder()
+    // .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+    // .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+    // .build();
+    // vibrator.vibrate(ve, audioAttributes);
+    // }
+    // // else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+    // // ve = VibrationEffect.createWaveform(timings,1);
+    // // va = new VibrationAttributes.Builder()
+    // // .setUsage(VibrationAttributes.USAGE_RINGTONE)
+    // // .build();
+    // // vibrator.vibrate(ve, va);
+    // // }
+    // }
+
+    // // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
+    // // if (origRingerMode == AudioManager.RINGER_MODE_NORMAL) {
+    // if (audioManager.getStreamVolume(AudioManager.STREAM_RING) == 0) {
+    // Log.d(TAG, "startRingtone(): ringer is silent. leave without play.");
+    // return;
+    // }
+
+    // // --- there is no _DTMF_ option in startRingtone()
+    // Uri ringtoneUri = getRingtoneUri(ringtoneUriType);
+    // if (ringtoneUri == null) {
+    // Log.d(TAG, "startRingtone(): no available media");
+    // return;
+    // }
+
+    // if (audioManagerActivated) {
+    // stop();
+    // }
+
+    // wakeLockUtils.acquirePartialWakeLock();
+
+    // storeOriginalAudioSetup();
+    // Map data = new HashMap<String, Object>();
+    // mRingtone = new myMediaPlayer();
+    // data.put("name", "mRingtone");
+    // data.put("sourceUri", ringtoneUri);
+    // data.put("setLooping", true);
+    // data.put("audioStream", AudioManager.STREAM_RING);
+    // /*
+    // * TODO: for API 21
+    // * data.put("audioFlag", 0);
+    // * data.put("audioUsage", AudioAttributes.USAGE_NOTIFICATION_RINGTONE); //
+    // * USAGE_NOTIFICATION_COMMUNICATION_REQUEST ?
+    // * data.put("audioContentType", AudioAttributes.CONTENT_TYPE_MUSIC);
+    // */
+    // setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
+    // mRingtone.startPlay(data);
+
+    // if (seconds > 0) {
+    // mRingtoneCountDownHandler = new Handler();
+    // mRingtoneCountDownHandler.postDelayed(new Runnable() {
+    // public void run() {
+    // try {
+    // Log.d(TAG, String.format(
+    // "mRingtoneCountDownHandler.stopRingtone() timeout after %d seconds",
+    // seconds));
+    // stopRingtone();
+    // } catch (Exception e) {
+    // Log.d(TAG, "mRingtoneCountDownHandler.stopRingtone() failed.");
+    // }
+    // }
+    // }, seconds * 1000);
+    // }
+    // } catch (Exception e) {
+    // wakeLockUtils.releasePartialWakeLock();
+    // Log.d(TAG, "startRingtone() failed");
+    // }
+    // }
+
+    @ReactMethod
     public static void stopNativeRingtone() {
-        try {
-            if (mRingtone != null) {
-                mRingtone.stopPlay();
-                mRingtone = null;
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Log.d(TAG, "stopNativeRingtone()");
+                    if (mRingtone != null) {
+                        mRingtone.stopPlay();
+                        mRingtone = null;
+                    }
+                    if (mRingtoneCountDownHandler != null) {
+                        mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
+                        mRingtoneCountDownHandler = null;
+                    }
+                    // stopRingback();
+                    vibrator.cancel();
+                    if (timer != null) {
+                        timer.cancel();
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "native stopNativeRingtone() failed");
+                }
             }
-            if (mRingtoneCountDownHandler != null) {
-                mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
-                mRingtoneCountDownHandler = null;
-            }
-            // stopRingback();
-            vibrator.cancel();
-            if (timer != null) {
-                timer.cancel();
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "native stopRingtone() failed");
-        }
+        };
+
+        thread.start();
     }
 
     @ReactMethod
     public void stopRingtone() {
-        try {
-            Log.d(TAG, "stopRingtone()");
-            if (mRingtone != null) {
-                mRingtone.stopPlay();
-                mRingtone = null;
-                restoreOriginalAudioSetup();
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Log.d(TAG, "stopRingtone()");
+                    if (mRingtone != null) {
+                        mRingtone.stopPlay();
+                        mRingtone = null;
+                        restoreOriginalAudioSetup();
+                    }
+                    if (mRingtoneCountDownHandler != null) {
+                        mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
+                        mRingtoneCountDownHandler = null;
+                    }
+                    vibrator.cancel();
+                    stopRingback();
+                    if (timer != null) {
+                        timer.cancel();
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "stopRingtone() failed");
+                }
+                wakeLockUtils.releasePartialWakeLock();
             }
-            if (mRingtoneCountDownHandler != null) {
-                mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
-                mRingtoneCountDownHandler = null;
-            }
-            vibrator.cancel();
-            stopRingback();
-            if (timer != null) {
-                timer.cancel();
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "stopRingtone() failed");
-        }
-        wakeLockUtils.releasePartialWakeLock();
+        };
+
+        thread.start();
     }
+
+    // @ReactMethod
+    // public void stopRingtone() {
+    // try {
+    // Log.d(TAG, "stopRingtone()");
+    // if (mRingtone != null) {
+    // mRingtone.stopPlay();
+    // mRingtone = null;
+    // restoreOriginalAudioSetup();
+    // }
+    // if (mRingtoneCountDownHandler != null) {
+    // mRingtoneCountDownHandler.removeCallbacksAndMessages(null);
+    // mRingtoneCountDownHandler = null;
+    // }
+    // vibrator.cancel();
+    // stopRingback();
+    // if (timer != null) {
+    // timer.cancel();
+    // }
+    // } catch (Exception e) {
+    // Log.d(TAG, "stopRingtone() failed");
+    // }
+    // wakeLockUtils.releasePartialWakeLock();
+    // }
 
     private void setMediaPlayerEvents(MediaPlayer mp, final String name) {
 
