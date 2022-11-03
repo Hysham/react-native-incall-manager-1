@@ -1030,7 +1030,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     }
 
     @ReactMethod
-    public void startRingtone(final String ringtoneUriType, final int seconds) {
+    public void startRingtone(final String ringtoneUriType, final String toneURI, final int seconds) {
         Thread thread = new Thread() {
             @Override
             public void run() {
@@ -1079,7 +1079,15 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                     }
 
                     // --- there is no _DTMF_ option in startRingtone()
-                    Uri ringtoneUri = getRingtoneUri(ringtoneUriType);
+                    Uri ringtoneUri;
+                    if (toneURI == null) {
+                        ringtoneUri = getRingtoneUri(ringtoneUriType);
+                    } else {
+                        ringtoneUri = Uri.parse(toneURI);
+                    }
+
+                    Log.d(TAG, "startRingtone(): ringtoneUri => " + ringtoneUri);
+                    // Uri ringtoneUri = "content://media/internal/audio/media/121";
                     if (ringtoneUri == null) {
                         Log.d(TAG, "startRingtone(): no available media");
                         return;
@@ -1133,103 +1141,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
 
         thread.start();
     }
-
-    // @ReactMethod
-    // public void startRingtone(final String ringtoneUriType, final int seconds) {
-    // try {
-    // Log.d(TAG, "startRingtone(): UriType=" + ringtoneUriType);
-
-    // if (isCallActive()) {
-    // Log.d(TAG, "startRingtone(): already a call active-playing beep");
-    // startHoldCallTone(ringtoneUriType);
-    // return;
-    // }
-
-    // if (mRingtone != null) {
-    // if (mRingtone.isPlaying()) {
-    // Log.d(TAG, "startRingtone(): is already playing");
-    // return;
-    // } else {
-    // stopRingtone(); // --- use brandnew instance
-    // }
-    // } else {
-    // // VIBRATION
-    // Log.d(TAG, "startRingtone(): VIBRATION");
-    // long[] timings = { 1000, 1000, 2000 };
-    // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-    // ve = VibrationEffect.createWaveform(timings, 1);
-    // audioAttributes = new AudioAttributes.Builder()
-    // .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-    // .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-    // .build();
-    // vibrator.vibrate(ve, audioAttributes);
-    // }
-    // // else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
-    // // ve = VibrationEffect.createWaveform(timings,1);
-    // // va = new VibrationAttributes.Builder()
-    // // .setUsage(VibrationAttributes.USAGE_RINGTONE)
-    // // .build();
-    // // vibrator.vibrate(ve, va);
-    // // }
-    // }
-
-    // // if (!audioManager.isStreamMute(AudioManager.STREAM_RING)) {
-    // // if (origRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-    // if (audioManager.getStreamVolume(AudioManager.STREAM_RING) == 0) {
-    // Log.d(TAG, "startRingtone(): ringer is silent. leave without play.");
-    // return;
-    // }
-
-    // // --- there is no _DTMF_ option in startRingtone()
-    // Uri ringtoneUri = getRingtoneUri(ringtoneUriType);
-    // if (ringtoneUri == null) {
-    // Log.d(TAG, "startRingtone(): no available media");
-    // return;
-    // }
-
-    // if (audioManagerActivated) {
-    // stop();
-    // }
-
-    // wakeLockUtils.acquirePartialWakeLock();
-
-    // storeOriginalAudioSetup();
-    // Map data = new HashMap<String, Object>();
-    // mRingtone = new myMediaPlayer();
-    // data.put("name", "mRingtone");
-    // data.put("sourceUri", ringtoneUri);
-    // data.put("setLooping", true);
-    // data.put("audioStream", AudioManager.STREAM_RING);
-    // /*
-    // * TODO: for API 21
-    // * data.put("audioFlag", 0);
-    // * data.put("audioUsage", AudioAttributes.USAGE_NOTIFICATION_RINGTONE); //
-    // * USAGE_NOTIFICATION_COMMUNICATION_REQUEST ?
-    // * data.put("audioContentType", AudioAttributes.CONTENT_TYPE_MUSIC);
-    // */
-    // setMediaPlayerEvents((MediaPlayer) mRingtone, "mRingtone");
-    // mRingtone.startPlay(data);
-
-    // if (seconds > 0) {
-    // mRingtoneCountDownHandler = new Handler();
-    // mRingtoneCountDownHandler.postDelayed(new Runnable() {
-    // public void run() {
-    // try {
-    // Log.d(TAG, String.format(
-    // "mRingtoneCountDownHandler.stopRingtone() timeout after %d seconds",
-    // seconds));
-    // stopRingtone();
-    // } catch (Exception e) {
-    // Log.d(TAG, "mRingtoneCountDownHandler.stopRingtone() failed.");
-    // }
-    // }
-    // }, seconds * 1000);
-    // }
-    // } catch (Exception e) {
-    // wakeLockUtils.releasePartialWakeLock();
-    // Log.d(TAG, "startRingtone() failed");
-    // }
-    // }
 
     @ReactMethod
     public static void stopNativeRingtone() {
@@ -1483,6 +1394,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
 
         // --- Check file every time in case user deleted.
         final String target = fileSysPath + "/" + type;
+        Log.d(TAG, "getAudioUri() target=>> " + target);
         Uri _uri = getSysFileUri(target);
         if (_uri == null) {
             Log.d(TAG, "getAudioUri() using user default");
